@@ -1,0 +1,64 @@
+service: tdx-district
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.9
+
+  stage: dev
+  region: ap-northeast-1
+
+# you can add statements to the Lambda function's IAM Role here
+  iam:
+    role: arn:aws:iam::250172214346:role/lambda-s3-role
+  environment:
+    s3_bucket: online-data-lake-thirty-three
+    tdx_auth_url: https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token
+    tdx_client_id: unhuman_7932-b91de074-ceed-4ef1
+    tdx_client_secret: 7425e597-8f32-4d9e-a8b4-da2a5606c2b8
+    tdx_village_api_checker: https://tdx.transportdata.tw/api/basic/V3/Map/District/Boundary/Village?%24top=1&%24format=GEOJSON
+    tdx_village_api_formal: https://tdx.transportdata.tw/api/basic/V3/Map/District/Boundary/Village?%24top=9999&%24format=GEOJSON
+    tdx_town_api_checker: https://tdx.transportdata.tw/api/basic/V3/Map/District/Boundary/Town?%24top=1&%24format=GEOJSON
+    tdx_town_api_formal: https://tdx.transportdata.tw/api/basic/V3/Map/District/Boundary/Town?%24top=1000&%24format=GEOJSON
+    tdx_city_api_checker: https://tdx.transportdata.tw/api/basic/V3/Map/District/Boundary/City?%24top=1&%24format=GEOJSON
+    tdx_city_api_formal: https://tdx.transportdata.tw/api/basic/V3/Map/District/Boundary/City?%24top=50&%24format=GEOJSON
+  layers:
+    - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
+    - arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python39:6
+
+# package:
+#   individually: True
+
+functions:
+  dst_village:
+    handler: handler.dst_village
+    timeout: 300
+    memorySize: 1024
+    # layers:
+    #   - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
+    #   - arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python39:6
+
+  dst_town:
+    handler: handler.dst_town
+    timeout: 300
+    memorySize: 1024
+    # layers:
+    #   - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
+    #   - arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python39:6
+
+  dst_city:
+    handler: handler.dst_city
+    timeout: 300
+    memorySize: 1024
+    # layers:
+    #   - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
+    #   - arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python39:6
+
+  tdx_district_file_list:
+    handler: handler.tdx_district_file_list
+    timeout: 180
+    memorySize: 128
+    # layers:
+    #   - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
+    #   - arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python39:6
