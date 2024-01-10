@@ -1,16 +1,11 @@
-from helper import get_road_data, get_existing_file
+from helper import get_road_id, get_link_id
 
 
-def tdx_line_string_file_list(event, context):
-    event['tdx_line_string_files'] = get_existing_file(data_type='line-string')
-
+def get_tdx_road_id(event, context):
+    event['get_tdx_road_id'] = get_road_id()
     return event
 
 
-def line_string_road(event, context):
-    result = get_road_data(category='road',
-                           output_folder='line-string')
-    event['num_of_road'] = result['num_of_road']
-    event['ingest_dt_road'] = result['ingest_dt']
-
+def get_tdx_link_id(event, context):
+    event['get_tdx_link_id'] = get_link_id(city_list=['高雄市'])
     return event

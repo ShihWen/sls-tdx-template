@@ -3,6 +3,9 @@ import boto3
 import os
 import requests
 import datetime
+import time
+import pandas as pd
+import awswrangler as wr
 
 # TDX helper class
 class Auth():
@@ -40,8 +43,8 @@ class Data():
             'authorization': 'Bearer '+access_token
         }
 
-def get_tdx_result(app_id=os.environ['tdx_client_id'], 
-                   app_key=os.environ['tdx_client_secret'], 
+def get_tdx_result(app_id=os.environ['tdx_client_id_1'], 
+                   app_key=os.environ['tdx_client_secret_1'], 
                    auth_url=os.environ['tdx_auth_url'],
                    url=None):
   a = Auth(app_id, app_key)
@@ -70,59 +73,126 @@ def get_existing_file(data_type:str)->list:
     return []
 
 
-def get_road_data(category:str, output_folder:str)->dict:
+def get_road_id():
     '''
-    Download geo data into S3 by comparing the UpdateDate(data_dt) in the S3 
+    function briefing
 
     Args:
-        existing_version: check update date of existing files
-
-        category: category of district data api, includes city, town and village.
-
-        output_folder: specify sub-path under bucket online-data-lake-thirty-three
+        [arg_name]: explaination
     
     Returns:
-        A dictionary of downloaded file presents by update date, and length of downloaded file
-        ex. 20210101
     '''
-    url_checker = f"{os.environ[f'tdx_{category}_api']}/0?%24top=1&%24format=GEOJSON"
+    city_list = ["Taipei", "Taichung", "Keelung", "Tainan", "Kaohsiung",
+                "NewTaipei", "YilanCounty", "Taoyuan", "Chiayi", "HsinchuCounty",
+                "MiaoliCounty", "NantouCounty", "ChanghuaCounty", "Hsinchu", "YunlinCounty",
+                "ChiayiCounty", "PingtungCounty", "HualienCounty", "TaitungCounty",
+                "KinmenCounty", "PenghuCounty", "LienchiangCounty"]
 
-    jdata_checker = get_tdx_result(url=url_checker)
-    update_dt = jdata_checker['features'][0]['properties']['model']['InfoDate'].split('T')[0]
-    update_dt = update_dt.replace('-','')
+    df_list = []
 
+    for city in city_list:
+        print(f"processing {city}...")
+        request_url = f"{os.environ['api_road_id']}/{city}"\
+                        "?%24top=99999"\
+                        "&%24format=JSON"
+        jdata = get_tdx_result(url=request_url)
+        df_road_id = pd.DataFrame(jdata)
+        df_list.append(df_road_id)
+        time.sleep(1.5)
 
-    json_out = []
-    for road_class in [0, 1, 3]: # road class
-        url_formal = f"{os.environ[f'tdx_{category}_api']}/{road_class}?%24top=99999&%24format=GEOJSON"     
-        jdata = get_tdx_result(url=url_formal)
-        
-
-        print(f"feature number of road class {road_class}: {len(jdata['features'])}")
-        ingest_dt = datetime.datetime.now().strftime("%Y/%m/%d")
-        ingest_time = datetime.datetime.now().strftime("%H:%M:%S")
-
-        for feat in jdata['features']:
-            obj = {}
-            obj['type'] = feat['type']
-            geometry_string = json.dumps(feat['geometry'])
-            obj['geometry'] = geometry_string
-
-            for k, v in feat['properties']['model'].items():
-                obj[k] = v
-            
-            obj['ingestDate'] = ingest_dt
-            obj['ingestTime'] = ingest_time
-            
-            json_out.append(obj)
-
-    length = len(json_out)
-    json_obj = '\n'.join(map(json.dumps, json_out))
-    
-    s3_client = boto3.client('s3')
+    df_road_all = pd.concat(df_list)
     ingest_dt = datetime.datetime.now().strftime("%Y%m%d")
-    s3_client.put_object(Body=json_obj,
-                        Bucket=os.environ['s3_bucket'],
-                        Key=f'{output_folder}/tdx_{category}_update_dt_{ingest_dt}.json')
+
+    wr.s3.to_parquet(
+        df=df_road_all,
+        path=f"s3://{os.environ['s3_bucket']}/line-string",
+        dataset=True,
+        filename_prefix=f'road_id_{ingest_dt}_'
+    )
+
+    raw_dict = dict(df_road_all['CityName'].value_counts())
+    return_dict = {}
+
+    for k, v in raw_dict.items():
+            return_dict[k] = str(v)
+
+    return {'road_id_cnt_by_city':return_dict}
+
+def load_road_id():
+    '''
+    function briefing
+
+    Args:
+        [arg_name]: explaination
     
-    return {'ingest_dt':ingest_dt, f'num_of_{category}':length}
+    Returns:
+    '''
+    read_dt = datetime.datetime.now().strftime("%Y%m%d")
+    return wr.s3.read_parquet(path=f's3://online-data-lake-thirty-three/line-string/road_id_{read_dt}_*', 
+                              columns=['RoadID','CityID','CityName'])
+
+
+def get_link_id(city_list:list):
+    '''
+    function briefing
+
+    Args:
+        [arg_name]: explaination
+    
+    Returns:
+    '''
+    df_road = load_road_id()
+    road_list = list(df_road[df_road['CityName'].isin(city_list)]['RoadID'])
+    link_id_df = []
+    counter = 0
+    got_cnt = 0
+    no_cnt = 0
+    error_cnt = 0
+
+    apis = [{"tdx_client_id":os.environ['tdx_client_id_1'],"tdx_client_secret":os.environ['tdx_client_secret_1']},
+            {"tdx_client_id":os.environ['tdx_client_id_2'],"tdx_client_secret":os.environ['tdx_client_secret_2']},
+            {"tdx_client_id":os.environ['tdx_client_id_3'],"tdx_client_secret":os.environ['tdx_client_secret_3']}]
+
+    while counter < len(road_list):
+        try:
+            #sys.stdout.write(f'/rprocessing road_id number {counter}')
+            request_url = "https://tdx.transportdata.tw/api/basic/v2/Road/Link/RoadID"\
+                        f"/{road_list[counter]}"\
+                        "?%24select=LinkID%2CRoadID%2CRoadName%2CRoadClass"\
+                        "&%24format=JSON"
+            api_idx = 0 #counter%3
+            jdata = get_tdx_result(app_id=apis[api_idx]['tdx_client_id'],
+                                   app_key=apis[api_idx]['tdx_client_secret'],
+                                   url=request_url)
+            counter += 1
+            print(f'\ndone processing road_id number {counter}, using api {api_idx}')
+            
+            if jdata == []:
+                no_cnt += 1
+                print('...no link_id')
+                time.sleep(1)
+            else:
+                link_id_df.append(pd.DataFrame(jdata))
+                got_cnt += 1
+                print(f'...got link_id: {got_cnt}/{counter}')
+                time.sleep(1)
+
+        except TypeError:
+            error_cnt += 1
+            counter += 1
+            print(f'TypeError:{error_cnt}/{counter}')
+            
+            time.sleep(1)
+
+    #df_link = pd.concat(link_id_df)
+
+    # raw_dict = dict(df_road['CityName'].value_counts())
+    # return_dict = {}
+
+    # for k, v in raw_dict.items():
+    #         return_dict[k] = str(v)
+
+    return {'finished':'!'}
+
+
+
