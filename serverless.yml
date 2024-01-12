@@ -1,4 +1,4 @@
-service: osm-road
+service: template
 
 frameworkVersion: '3'
 
@@ -23,8 +23,8 @@ provider:
 #   individually: True
 
 functions:
-  get_tdx_road_id:
-    handler: handler.get_tdx_road_id
+  somefunction:
+    handler: handler.somefunction
     timeout: 180
     memorySize: 256
     # layers:
