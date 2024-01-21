@@ -17,6 +17,9 @@ provider:
     tdx_auth_url: https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token
     tdx_client_id: unhuman_7932-b91de074-ceed-4ef1
     tdx_client_secret: 7425e597-8f32-4d9e-a8b4-da2a5606c2b8
+    city_list: "Taipei,NewTaipei,Taoyuan,Taichung,Tainan,Kaohsiung,Keelung,KinmenCounty,Hsinchu,\
+                HsinchuCounty,MiaoliCounty,NantouCounty,ChanghuaCounty,YunlinCounty,\
+                ChiayiCounty,Chiayi,PingtungCounty,HualienCounty,TaitungCounty,YilanCounty,PenghuCounty"
 
   layers:
     - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
@@ -33,5 +36,11 @@ functions:
     # layers:
     #   - arn:aws:lambda:ap-northeast-1:770693421928:layer:Klayers-p39-requests:13
     #   - arn:aws:lambda:ap-northeast-1:336392948345:layer:AWSSDKPandas-Python39:6
+  
+  get_tdx_bus_station:
+    handler: handler.get_tdx_bus_station
+    timeout: 180
+    memorySize: 256
+
 
 
